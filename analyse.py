@@ -66,7 +66,6 @@ def summarise(rows: list):
 
         for prompt_id in sorted(by_prompt.keys()):
             prompt_rows = by_prompt[prompt_id]
-            n = len(prompt_rows)
 
             eval_rates = [safe_float(r["eval_rate_tps"]) for r in prompt_rows]
             prompt_rates = [safe_float(r["prompt_rate_tps"]) for r in prompt_rows]

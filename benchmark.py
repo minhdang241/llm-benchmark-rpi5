@@ -179,25 +179,25 @@ def run_single_prompt(
         "output_category": prompt_data["output_category"],
         "n_predict": n_predict,
         # Timing metrics
-        "ttft_ms": parsed["ttft_ms"],
-        "eval_rate_tps": parsed["eval_rate_tps"],
-        "prompt_rate_tps": parsed["prompt_rate_tps"],
-        "end_to_end_ms": parsed["total_time_ms"],
-        "load_time_ms": parsed["load_time_ms"],
+        "ttft_ms": parsed["ttft_ms"],  # time to first token
+        "eval_rate_tps": parsed["eval_rate_tps"],  # token generation rate
+        "prompt_rate_tps": parsed["prompt_rate_tps"],  # prompt processing rate
+        "end_to_end_ms": parsed["total_time_ms"],  # total time
+        "load_time_ms": parsed["load_time_ms"],  # model load time
         "prompt_eval_time_ms": parsed["prompt_eval_time_ms"],
         "eval_time_ms": parsed["eval_time_ms"],
         "prompt_tokens": parsed["prompt_tokens"],
         "eval_tokens": parsed["eval_tokens"],
         "total_tokens": parsed["total_tokens"],
         # Resource metrics
-        "avg_cpu_pct": resource_metrics["avg_cpu_pct"],
+        "avg_cpu_pct": resource_metrics["avg_cpu_pct"],  # average CPU utilization
         "max_cpu_pct": resource_metrics["max_cpu_pct"],
-        "peak_mem_mb": resource_metrics["peak_mem_mb"],
-        "avg_mem_mb": resource_metrics["avg_mem_mb"],
+        "peak_mem_mb": resource_metrics["peak_mem_mb"],  # peak memory usage
+        "avg_mem_mb": resource_metrics["avg_mem_mb"],  # average memory usage
         "net_rx_mb": resource_metrics["net_rx_mb"],
         "net_tx_mb": resource_metrics["net_tx_mb"],
         # Wall time from Python (backup)
-        "wall_time_ms": round(wall_time_ms, 2),
+        # "wall_time_ms": round(wall_time_ms, 2),
         # Metadata
         "returncode": returncode,
         "parse_errors": "; ".join(parsed.get("parse_errors", [])),
@@ -485,9 +485,9 @@ def main():
     if not args.dry_run:
         print("\n  ⚠  REMINDER: Reboot the Pi before each configuration run")
         print("     to clear residual state (as per Section 3.7.4).")
-        resp = input("\n  Press Enter to start (or 'q' to quit): ")
-        if resp.strip().lower() == "q":
-            sys.exit(0)
+        # resp = input("\n  Press Enter to start (or 'q' to quit): ")
+        # if resp.strip().lower() == "q":
+        # sys.exit(0)
 
     run_benchmark(args.config, model_filter=args.model, dry_run=args.dry_run)
 
