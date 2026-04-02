@@ -23,7 +23,8 @@ from datetime import datetime
 
 from config import (
     CONFIGURATIONS,
-    MODELS,
+    MODELS_LLAMA,
+    MODELS_DLLAMA,
     MODEL_DIR,
     OUTPUT_DIR,
     NUM_RUNS,
@@ -50,8 +51,6 @@ def build_llama_cpp_cmd(
         binary,
         "-m",
         model_path,
-        "-p",
-        prompt,
         "-n",
         str(n_predict),
         "--temp",
@@ -62,10 +61,14 @@ def build_llama_cpp_cmd(
         "--single-turn",
         "--no-display-prompt",
         "-no-cnv",
+        "-p",
+        prompt,
     ]
 
 
-def build_dllama_cmd(binary: str, model_path: str, prompt: str, n_predict: int) -> list:
+def build_dllama_cmd(
+    binary: str, model_path: str, tokenizer_path: str, prompt: str, n_predict: int
+) -> list:
     """
     Build the dllama inference command for single-node mode.
 
@@ -79,14 +82,18 @@ def build_dllama_cmd(binary: str, model_path: str, prompt: str, n_predict: int) 
         "inference",
         "--model",
         model_path,
-        "--prompt",
-        prompt,
+        "--tokenizer",
+        tokenizer_path,
         "--steps",
         str(n_predict),
         "--temperature",
         str(TEMPERATURE),
         "--nthreads",
         str(NUM_THREADS),
+        "--buffer-float-type",
+        "q80",
+        "--prompt",
+        prompt,
     ]
 
 
@@ -96,7 +103,12 @@ def build_dllama_cmd(binary: str, model_path: str, prompt: str, n_predict: int) 
 
 
 def run_single_prompt(
-    config_id: str, binary: str, framework: str, model_path: str, prompt_data: dict
+    config_id: str,
+    binary: str,
+    framework: str,
+    model_path: str,
+    prompt_data: dict,
+    tokenizer_path: str = "",
 ) -> tuple:
     """
     Execute one prompt and collect all metrics.
@@ -110,7 +122,10 @@ def run_single_prompt(
         cmd = build_llama_cpp_cmd(binary, model_path, prompt_text, n_predict)
         parser_fn = parse_llama_cpp_output
     elif framework == "distributed_llama":
-        cmd = build_dllama_cmd(binary, model_path, prompt_text, n_predict)
+        assert tokenizer_path != ""
+        cmd = build_dllama_cmd(
+            binary, model_path, tokenizer_path, prompt_text, n_predict
+        )
         parser_fn = parse_dllama_output
     else:
         raise ValueError(f"Unknown framework: {framework}")
@@ -211,7 +226,9 @@ def run_single_prompt(
 # ============================================================
 
 
-def measure_model_load_time(binary: str, framework: str, model_path: str) -> float:
+def measure_model_load_time(
+    binary: str, framework: str, model_path: str, tokenizer_path: str = ""
+) -> float:
     """
     Measure model load time by running a minimal prompt and extracting
     the load_time field from the output.
@@ -223,7 +240,9 @@ def measure_model_load_time(binary: str, framework: str, model_path: str) -> flo
         cmd = build_llama_cpp_cmd(binary, model_path, dummy_prompt, n_predict)
         parser_fn = parse_llama_cpp_output
     elif framework == "distributed_llama":
-        cmd = build_dllama_cmd(binary, model_path, dummy_prompt, n_predict)
+        cmd = build_dllama_cmd(
+            binary, model_path, tokenizer_path, dummy_prompt, n_predict
+        )
         parser_fn = parse_dllama_output
     else:
         return 0.0
@@ -297,12 +316,17 @@ def append_csv(filepath: str, row: dict):
 # ============================================================
 
 
-def run_benchmark(config_id: str, model_filter: str = None, dry_run: bool = False):
+def run_benchmark(config_id: str, model_filter: str = "", dry_run: bool = False):
     """Run the full benchmark for a given configuration."""
 
     config = CONFIGURATIONS[config_id]
     framework = config["framework"]
     binary = config["binary"]
+    models = dict()
+    if framework == "llama.cpp":
+        models = MODELS_LLAMA
+    elif framework == "distributed_llama":
+        models = MODELS_DLLAMA
 
     # Validate binary exists
     if not dry_run and not os.path.isfile(binary):
@@ -321,13 +345,13 @@ def run_benchmark(config_id: str, model_filter: str = None, dry_run: bool = Fals
 
     # Determine which models to run
     models_to_run = {}
-    for model_id, model_info in MODELS.items():
+    for model_id, model_info in models.items():
         if model_filter and model_id != model_filter:
             continue
         models_to_run[model_id] = model_info
 
     if not models_to_run:
-        print(f"ERROR: No matching models found. Available: {list(MODELS.keys())}")
+        print(f"ERROR: No matching models found. Available: {list(models.keys())}")
         sys.exit(1)
 
     print("=" * 70)
@@ -344,6 +368,9 @@ def run_benchmark(config_id: str, model_filter: str = None, dry_run: bool = Fals
     # Iterate models
     for model_id, model_info in models_to_run.items():
         model_path = os.path.join(MODEL_DIR, model_info["filename"])
+        tokenizer_path = ""
+        if framework == "distributed_llama":
+            tokenizer_path = os.path.join(MODEL_DIR, model_info["tokenizer_name"])
 
         if not dry_run and not os.path.isfile(model_path):
             print(f"\n  [SKIP] Model file not found: {model_path}")
@@ -357,7 +384,9 @@ def run_benchmark(config_id: str, model_filter: str = None, dry_run: bool = Fals
         # Measure model load time
         if not dry_run:
             print(f"  Measuring model load time...")
-            load_time = measure_model_load_time(binary, framework, model_path)
+            load_time = measure_model_load_time(
+                binary, framework, model_path, tokenizer_path
+            )
             print(f"  Model load time: {load_time:.1f} ms")
 
             # Save load time metadata
@@ -385,6 +414,7 @@ def run_benchmark(config_id: str, model_filter: str = None, dry_run: bool = Fals
                     cmd = build_dllama_cmd(
                         binary,
                         model_path,
+                        tokenizer_path,
                         prompt_data["text"][:60] + "...",
                         prompt_data["n_predict"],
                     )
@@ -403,7 +433,12 @@ def run_benchmark(config_id: str, model_filter: str = None, dry_run: bool = Fals
                 print(f"    {label}...", end=" ", flush=True)
 
                 result, generated_text = run_single_prompt(
-                    config_id, binary, framework, model_path, prompt_data
+                    config_id,
+                    binary,
+                    framework,
+                    model_path,
+                    prompt_data,
+                    tokenizer_path,
                 )
 
                 # Add model and run metadata
@@ -466,7 +501,7 @@ def main():
     parser.add_argument(
         "--model",
         default=None,
-        help=f"Run only this model. Choices: {list(MODELS.keys())}",
+        help=f"Run only this model. Choices: {list(MODELS_DLLAMA.keys())}",
     )
     parser.add_argument(
         "--dry-run", action="store_true", help="Show commands without executing"

@@ -1,25 +1,36 @@
-# Thesis Benchmark: C1 & C2 Configurations
+# Pi setup
+Raspberry Pi 5 (16 GB RAM) running Raspberry Pi OS (64-bit)
 
-Benchmarks single-device LLM inference on Raspberry Pi 5 using:
-- **C1**: llama.cpp (baseline)
-- **C2**: Distributed Llama (single-node mode)
+```bash
+# Update the system
+sudo apt update && sudo apt upgrade -y
 
-## Prerequisites
+# Install build tools
+sudo apt install -y git build-essential cmake python3-pip
 
-- Raspberry Pi 5 (16 GB RAM) running Raspberry Pi OS (64-bit)
-- Python 3.11+
-- Build tools: `sudo apt install build-essential cmake git`
+# Install zram for better swap
+sudo apt install -y zram-tools
+sudo reboot
+```
+
+After reboot
+
+```bash
+sudo systemctl disable bluetooth
+sudo systemctl disable cups
+sudo systemctl disable ModemManager
+sudo systemctl disable avahi-daemon
+```
 
 ## 1. Build llama.cpp
 
 ```bash
-cd /home/pi
-git clone https://github.com/ggml-org/llama.cpp.git
+git clone https://github.com/ggerganov/llama.cpp
 cd llama.cpp
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release -j4
 # Binary: /home/pi/llama.cpp/build/bin/llama-cli
-```
+````
 
 ## 2. Build Distributed Llama
 
@@ -30,17 +41,34 @@ cd distributed-llama
 make dllama
 # Binary: /home/pi/distributed-llama/dllama
 ```
+Benchmarks single-device LLM inference on Raspberry Pi 5 using:
+
+- **C1**: llama.cpp (baseline)
+- **C2**: Distributed Llama (single-node mode)
 
 ## 3. Download Models
 
-Download Q4_0 GGUF models to `/home/pi/models/`:
+Move to the models folder from the root
 
+**For llama.cpp**
+
+```bash
+mkdir -p models/llama
+cd models/llama
+```
+
+```bash
+hf download bartowski/Qwen_Qwen3-1.7B-GGUF/Qwen_Qwen3-1.7B-Q4_0.gguf  .
+```
+
+**For dllama.cpp**
 **Important**: Update the `filename` values in `config.py` to match the exact
 filenames you downloaded, as naming varies across repos.
 
 ## 4. Configure Paths
 
 Edit `config.py` and update:
+
 - `LLAMA_CPP_BIN` — path to your `llama-cli` binary
 - `DLLAMA_BIN` — path to your `dllama` binary
 - `MODEL_DIR` — path to your models directory

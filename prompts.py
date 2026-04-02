@@ -10,23 +10,21 @@ PROMPTS = [
         "input_category": "short",
         "output_category": "short",
         "n_predict": 50,
-        "text": (
-            "What is edge computing? Answer in exactly two sentences."
-        ),
+        "text": ("What is edge computing? Answer in exactly two sentences."),
     },
+    # {
+    #     "id": "P02",
+    #     "name": "Explanation",
+    #     "input_category": "short",
+    #     "output_category": "medium",
+    #     "n_predict": 225,
+    #     "text": (
+    #         "Explain how tensor parallelism works in distributed machine learning "
+    #         "inference. Write approximately one paragraph of five to seven sentences."
+    #     ),
+    # },
     {
         "id": "P02",
-        "name": "Explanation",
-        "input_category": "short",
-        "output_category": "medium",
-        "n_predict": 225,
-        "text": (
-            "Explain how tensor parallelism works in distributed machine learning "
-            "inference. Write approximately one paragraph of five to seven sentences."
-        ),
-    },
-    {
-        "id": "P03",
         "name": "Comparative Analysis",
         "input_category": "short",
         "output_category": "long",
@@ -38,66 +36,66 @@ PROMPTS = [
             "approximately three to four paragraphs."
         ),
     },
+    # {
+    #     "id": "P04",
+    #     "name": "Comprehension",
+    #     "input_category": "medium",
+    #     "output_category": "short",
+    #     "n_predict": 50,
+    #     "text": (
+    #         "The Internet of Things (IoT) connects physical and digital devices using "
+    #         "various communication protocols. IoT has three main characteristics: "
+    #         "comprehensive perception, which uses sensors and RFID to collect information "
+    #         "about objects at any time and place; reliable transmission, which sends "
+    #         "data correctly using telecommunications networks; and intelligent "
+    #         "processing, which uses computing technologies to process large volumes of "
+    #         "data. However, IoT devices are often resource-constrained with limited "
+    #         "computational abilities, memory, and power supply, making data processing "
+    #         "challenging. Based on the paragraph above, what is the main challenge of "
+    #         "IoT devices? Answer in exactly one sentence."
+    #     ),
+    # },
+    # {
+    #     "id": "P05",
+    #     "name": "Summarization",
+    #     "input_category": "medium",
+    #     "output_category": "medium",
+    #     "n_predict": 150,
+    #     "text": (
+    #         "Edge computing is a computing paradigm that performs computing and "
+    #         "provides services at the network edge. The whole idea is to migrate "
+    #         "the cloud's capabilities closer to where data is generated. Before the "
+    #         "advent of edge computing, all data was transferred to a centralized cloud "
+    #         "computing facility via the network for computation, storage, and analysis. "
+    #         "However, with the increase in devices connected to the Internet of Things, "
+    #         "the transmission rate and network bandwidth have become bottlenecks. "
+    #         "Additionally, as most IoT devices generate personal and sensitive data, "
+    #         "sending all the data to a remote server raises privacy concerns. The "
+    #         "advent of edge computing will not replace cloud computing; instead, the "
+    #         "two co-exist to complement each other's limitations. Summarize the above "
+    #         "passage in approximately four to five sentences, focusing on why edge "
+    #         "computing emerged and its relationship with cloud computing."
+    #     ),
+    # },
+    # {
+    #     "id": "P06",
+    #     "name": "Reasoning + Elaboration",
+    #     "input_category": "medium",
+    #     "output_category": "long",
+    #     "n_predict": 525,
+    #     "text": (
+    #         "A 2-node Raspberry Pi 5 cluster has 32 GB total RAM. The operating system "
+    #         "on each node uses 1 GB. Each inference runtime instance uses 0.5 GB. The "
+    #         "network communication buffer on each node requires 0.2 GB. A GGUF model in "
+    #         "Q4_0 format has approximately 0.5 GB per billion parameters. Calculate the "
+    #         "maximum model size in billions of parameters that this cluster can run using "
+    #         "distributed inference. Show all steps of your reasoning. Then discuss "
+    #         "what practical factors might reduce the actual usable memory below this "
+    #         "theoretical maximum. Write approximately three to four paragraphs."
+    #     ),
+    # },
     {
-        "id": "P04",
-        "name": "Comprehension",
-        "input_category": "medium",
-        "output_category": "short",
-        "n_predict": 50,
-        "text": (
-            "The Internet of Things (IoT) connects physical and digital devices using "
-            "various communication protocols. IoT has three main characteristics: "
-            "comprehensive perception, which uses sensors and RFID to collect information "
-            "about objects at any time and place; reliable transmission, which sends "
-            "data correctly using telecommunications networks; and intelligent "
-            "processing, which uses computing technologies to process large volumes of "
-            "data. However, IoT devices are often resource-constrained with limited "
-            "computational abilities, memory, and power supply, making data processing "
-            "challenging. Based on the paragraph above, what is the main challenge of "
-            "IoT devices? Answer in exactly one sentence."
-        ),
-    },
-    {
-        "id": "P05",
-        "name": "Summarization",
-        "input_category": "medium",
-        "output_category": "medium",
-        "n_predict": 150,
-        "text": (
-            "Edge computing is a computing paradigm that performs computing and "
-            "provides services at the network edge. The whole idea is to migrate "
-            "the cloud's capabilities closer to where data is generated. Before the "
-            "advent of edge computing, all data was transferred to a centralized cloud "
-            "computing facility via the network for computation, storage, and analysis. "
-            "However, with the increase in devices connected to the Internet of Things, "
-            "the transmission rate and network bandwidth have become bottlenecks. "
-            "Additionally, as most IoT devices generate personal and sensitive data, "
-            "sending all the data to a remote server raises privacy concerns. The "
-            "advent of edge computing will not replace cloud computing; instead, the "
-            "two co-exist to complement each other's limitations. Summarize the above "
-            "passage in approximately four to five sentences, focusing on why edge "
-            "computing emerged and its relationship with cloud computing."
-        ),
-    },
-    {
-        "id": "P06",
-        "name": "Reasoning + Elaboration",
-        "input_category": "medium",
-        "output_category": "long",
-        "n_predict": 525,
-        "text": (
-            "A 2-node Raspberry Pi 5 cluster has 32 GB total RAM. The operating system "
-            "on each node uses 1 GB. Each inference runtime instance uses 0.5 GB. The "
-            "network communication buffer on each node requires 0.2 GB. A GGUF model in "
-            "Q4_0 format has approximately 0.5 GB per billion parameters. Calculate the "
-            "maximum model size in billions of parameters that this cluster can run using "
-            "distributed inference. Show all steps of your reasoning. Then discuss "
-            "what practical factors might reduce the actual usable memory below this "
-            "theoretical maximum. Write approximately three to four paragraphs."
-        ),
-    },
-    {
-        "id": "P07",
+        "id": "P03",
         "name": "Classification",
         "input_category": "long",
         "output_category": "short",
@@ -127,40 +125,40 @@ PROMPTS = [
             "one sentence."
         ),
     },
+    # {
+    #     "id": "P08",
+    #     "name": "Critical Analysis",
+    #     "input_category": "long",
+    #     "output_category": "medium",
+    #     "n_predict": 225,
+    #     "text": (
+    #         "Task assignment is the process of deciding upfront whether an edge SLM "
+    #         "or a cloud LLM should handle a specific request. To achieve the right "
+    #         "balance between saving energy, reducing lag, and keeping quality high, "
+    #         "researchers usually use tools like lightweight scorers or bandit-based "
+    #         "controllers to make routing choices on the fly. Some approaches use smaller "
+    #         "models for easy tasks and larger ones only when needed. Tasks can be "
+    #         "categorized by measuring cost effectiveness. Another scalable approach "
+    #         "is Mixture-of-Experts, where systems route queries to specific cloud experts "
+    #         "through a lightweight local gatekeeper. Agent-based methods extend this "
+    #         "further by using planning agents to break down complex instructions and "
+    #         "delegate subtasks to specialized agents. Task division allows Small "
+    #         "Language Models and Large Language Models to collaborate on complementary "
+    #         "subtasks by breaking down modular or hierarchical tasks into smaller "
+    #         "components. This approach relies on three main strategies: routing, "
+    #         "computation offloading, and early exit. Routing and forwarding techniques "
+    #         "choose the most appropriate model on the fly during inference. Computation "
+    #         "offloading distributes the inference workload between edge devices and cloud "
+    #         "servers depending on live runtime conditions. Early-exit mechanisms give "
+    #         "the system the ability to stop processing at middle layers if the model "
+    #         "is confident enough. Critically evaluate which of these collaborative "
+    #         "inference strategies would be most appropriate for a Raspberry Pi 5 cluster "
+    #         "running IoT sensor data processing. Justify your answer in approximately "
+    #         "five to seven sentences."
+    #     ),
+    # },
     {
-        "id": "P08",
-        "name": "Critical Analysis",
-        "input_category": "long",
-        "output_category": "medium",
-        "n_predict": 225,
-        "text": (
-            "Task assignment is the process of deciding upfront whether an edge SLM "
-            "or a cloud LLM should handle a specific request. To achieve the right "
-            "balance between saving energy, reducing lag, and keeping quality high, "
-            "researchers usually use tools like lightweight scorers or bandit-based "
-            "controllers to make routing choices on the fly. Some approaches use smaller "
-            "models for easy tasks and larger ones only when needed. Tasks can be "
-            "categorized by measuring cost effectiveness. Another scalable approach "
-            "is Mixture-of-Experts, where systems route queries to specific cloud experts "
-            "through a lightweight local gatekeeper. Agent-based methods extend this "
-            "further by using planning agents to break down complex instructions and "
-            "delegate subtasks to specialized agents. Task division allows Small "
-            "Language Models and Large Language Models to collaborate on complementary "
-            "subtasks by breaking down modular or hierarchical tasks into smaller "
-            "components. This approach relies on three main strategies: routing, "
-            "computation offloading, and early exit. Routing and forwarding techniques "
-            "choose the most appropriate model on the fly during inference. Computation "
-            "offloading distributes the inference workload between edge devices and cloud "
-            "servers depending on live runtime conditions. Early-exit mechanisms give "
-            "the system the ability to stop processing at middle layers if the model "
-            "is confident enough. Critically evaluate which of these collaborative "
-            "inference strategies would be most appropriate for a Raspberry Pi 5 cluster "
-            "running IoT sensor data processing. Justify your answer in approximately "
-            "five to seven sentences."
-        ),
-    },
-    {
-        "id": "P09",
+        "id": "P04",
         "name": "Comprehensive Summarisation",
         "input_category": "long",
         "output_category": "long",

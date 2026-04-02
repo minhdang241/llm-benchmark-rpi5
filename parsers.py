@@ -93,12 +93,17 @@ def parse_dllama_output(
     """
     Parse Distributed Llama output.
 
-    Distributed Llama output format varies by version. Common patterns:
-        Generated N tokens in X.XXs (Y.YY tokens/s)
-        Prompt eval: X.XX ms / N tokens (Y.YY tokens/s)
-
-    This parser attempts multiple patterns and falls back to wall time.
-    Adjust regex patterns to match your installed version.
+    Expected format:
+        🔷️ Eval  111 ms Sync    0 ms | Sent     0 kB Recv     0 kB | (10 tokens)
+        🔶 Pred   18 ms Sync    0 ms | Sent     0 kB Recv     0 kB |  Edge
+        ...
+        Evaluation
+           nBatches: 32
+            nTokens: 10
+           tokens/s: 89.71 (11.15 ms/tok)
+        Prediction
+            nTokens: 40
+           tokens/s: 62.05 (16.12 ms/tok)
     """
     combined = stderr_text + "\n" + stdout_text
     result = {
@@ -116,63 +121,49 @@ def parse_dllama_output(
         "parse_errors": [],
     }
 
-    # --- Try to find generation stats ---
-    # Pattern: "Generated N tokens in X.XXs (Y.YY tokens/s)"
+    # --- Prompt eval time from the 🔷 Eval line ---
+    m = re.search(r"Eval\s+(\d+)\s+ms", combined)
+    if m:
+        result["prompt_eval_time_ms"] = float(m.group(1))
+
+    # --- Evaluation (prompt) summary block ---
     m = re.search(
-        r"Generated\s+(\d+)\s+tokens?\s+in\s+([\d.]+)\s*s\s*\(([\d.]+)\s*tokens?/s\)",
+        r"Evaluation\s+nBatches:\s+\d+\s+nTokens:\s+(\d+)\s+tokens/s:\s+([\d.]+)\s+\(([\d.]+)\s+ms/tok\)",
+        combined,
+    )
+    if m:
+        result["prompt_tokens"] = int(m.group(1))
+        result["prompt_rate_tps"] = float(m.group(2))
+        # Use ms/tok * nTokens if Eval line wasn't found
+        if result["prompt_eval_time_ms"] == 0.0:
+            result["prompt_eval_time_ms"] = round(int(m.group(1)) * float(m.group(3)), 2)
+    else:
+        result["parse_errors"].append("Evaluation section not found")
+
+    # --- Prediction (generation) summary block ---
+    m = re.search(
+        r"Prediction\s+nTokens:\s+(\d+)\s+tokens/s:\s+([\d.]+)\s+\(([\d.]+)\s+ms/tok\)",
         combined,
     )
     if m:
         result["eval_tokens"] = int(m.group(1))
-        result["eval_time_ms"] = float(m.group(2)) * 1000.0
-        result["eval_rate_tps"] = float(m.group(3))
+        result["eval_rate_tps"] = float(m.group(2))
+        result["eval_time_ms"] = round(int(m.group(1)) * float(m.group(3)), 2)
     else:
-        result["parse_errors"].append(
-            "generation stats not found — check dllama output format"
-        )
+        result["parse_errors"].append("Prediction section not found")
 
-    # --- Try to find prompt eval ---
-    m = re.search(
-        r"[Pp]rompt\s+eval:?\s*([\d.]+)\s*ms\s*/\s*(\d+)\s*tokens?\s*\(([\d.]+)\s*tokens?/s\)",
-        combined,
-    )
-    if m:
-        result["prompt_eval_time_ms"] = float(m.group(1))
-        result["prompt_tokens"] = int(m.group(2))
-        result["prompt_rate_tps"] = float(m.group(3))
+    # --- TTFT: prompt eval time + first prediction step time ---
+    pred_times = re.findall(r"Pred\s+(\d+)\s+ms", combined)
+    if pred_times and result["prompt_eval_time_ms"] > 0:
+        result["ttft_ms"] = result["prompt_eval_time_ms"] + float(pred_times[0])
 
-    # --- Try to find load time ---
-    m = re.search(
-        r"[Ll]oad(?:ed|ing)?\s+(?:time|model)?:?\s*([\d.]+)\s*(?:ms|s)", combined
-    )
-    if m:
-        val = float(m.group(1))
-        # heuristic: if < 100, probably seconds
-        result["load_time_ms"] = val * 1000.0 if val < 100 else val
-
-    # --- Extract generated text (lines that aren't stats) ---
-    # This is a heuristic — dllama mixes output and stats
-    lines = combined.split("\n")
-    text_lines = []
-    stat_patterns = [
-        r"Generated\s+\d+",
-        r"[Pp]rompt\s+eval",
-        r"[Ll]oad",
-        r"tokens?/s",
-        r"^\s*$",
-        r"^#",
-        r"^\[",
-    ]
-    for line in lines:
-        if not any(re.search(p, line) for p in stat_patterns):
-            text_lines.append(line)
-    result["generated_text"] = "\n".join(text_lines).strip()
+    # --- Generated text: tokens from Pred lines (after the last | ) ---
+    token_matches = re.findall(r"Pred.*\|\s+(.+)$", combined, re.MULTILINE)
+    if token_matches:
+        result["generated_text"] = "".join(token_matches).strip()
+    else:
+        result["parse_errors"].append("generated text not found in Pred lines")
 
     result["total_tokens"] = result["prompt_tokens"] + result["eval_tokens"]
-
-    # TTFT estimate
-    if result["prompt_eval_time_ms"] > 0 and result["eval_tokens"] > 0:
-        per_token_ms = result["eval_time_ms"] / max(result["eval_tokens"], 1)
-        result["ttft_ms"] = round(result["prompt_eval_time_ms"] + per_token_ms, 2)
 
     return result
