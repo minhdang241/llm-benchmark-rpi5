@@ -63,6 +63,10 @@ def summarise(rows: list):
 
         model_eval_rates = []
         model_prompt_rates = []
+        model_ttfts = []
+        model_e2es = []
+        model_cpus = []
+        model_mems = []
 
         for prompt_id in sorted(by_prompt.keys()):
             prompt_rows = by_prompt[prompt_id]
@@ -81,11 +85,14 @@ def summarise(rows: list):
 
             model_eval_rates.extend(eval_rates)
             model_prompt_rates.extend(prompt_rates)
+            model_ttfts.extend(ttfts)
+            model_e2es.extend(e2es)
+            model_cpus.extend(cpus)
+            model_mems.extend(mems)
 
-        # Model averages
-        avg_eval = sum(model_eval_rates) / len(model_eval_rates) if model_eval_rates else 0
-        avg_prompt = sum(model_prompt_rates) / len(model_prompt_rates) if model_prompt_rates else 0
-        print(f"  {'AVERAGE':<8} {avg_eval:>10.2f} {avg_prompt:>12.2f}")
+        avg = lambda lst: sum(lst) / len(lst) if lst else 0
+        print(f"  {'AVERAGE':<8} {avg(model_eval_rates):>10.2f} {avg(model_prompt_rates):>12.2f} "
+              f"{avg(model_ttfts):>9.1f} {avg(model_e2es):>9.0f} {avg(model_cpus):>6.1f} {avg(model_mems):>8.0f}")
 
 
 def compare_configs(rows_list: list):
@@ -110,11 +117,16 @@ def compare_configs(rows_list: list):
         for cid, data in sorted(configs.items()):
             model_rows = [r for r in data if r.get("model_id") == model_id]
             if model_rows:
+                avg = lambda lst: sum(lst) / len(lst) if lst else 0
                 eval_rates = [safe_float(r["eval_rate_tps"]) for r in model_rows]
                 prompt_rates = [safe_float(r["prompt_rate_tps"]) for r in model_rows]
-                avg_eval = sum(eval_rates) / len(eval_rates) if eval_rates else 0
-                avg_prompt = sum(prompt_rates) / len(prompt_rates) if prompt_rates else 0
-                print(f"    {cid}: avg eval={avg_eval:.2f} tok/s, avg prompt={avg_prompt:.2f} tok/s")
+                ttfts = [safe_float(r["ttft_ms"]) for r in model_rows]
+                e2es = [safe_float(r["end_to_end_ms"]) for r in model_rows]
+                cpus = [safe_float(r["avg_cpu_pct"]) for r in model_rows]
+                mems = [safe_float(r["peak_mem_mb"]) for r in model_rows]
+                print(f"    {cid}: eval={avg(eval_rates):.2f} tok/s, prompt={avg(prompt_rates):.2f} tok/s, "
+                      f"ttft={avg(ttfts):.1f} ms, e2e={avg(e2es):.0f} ms, "
+                      f"cpu={avg(cpus):.1f}%, mem={avg(mems):.0f} MB")
 
 
 def main():
