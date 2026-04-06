@@ -128,7 +128,7 @@ def run_single_prompt(
         if prompt_data["id"] == "P03":
             # dllama --steps counts prompt + generation tokens;
             # ensure it covers the full input for Comparative Analysis.
-            steps = max(n_predict, len(prompt_text) // 4)
+            steps = 450
         cmd = build_dllama_cmd(binary, model_path, tokenizer_path, prompt_text, steps)
         parser_fn = parse_dllama_output
     else:
