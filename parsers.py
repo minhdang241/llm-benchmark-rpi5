@@ -73,11 +73,11 @@ def parse_llama_cpp_output(
     else:
         result["parse_errors"].append("eval not found")
 
-    # --- total ---
-    m = re.search(r"total time\s*=\s*([\d.]+)\s*ms\s*/\s*(\d+)\s*tokens?", text)
+    # --- total tokens ---
+    # total_time_ms stays as wall_time_ms (set at init) for consistency with dllama.
+    m = re.search(r"total time\s*=\s*[\d.]+\s*ms\s*/\s*(\d+)\s*tokens?", text)
     if m:
-        result["total_time_ms"] = float(m.group(1))
-        result["total_tokens"] = int(m.group(2))
+        result["total_tokens"] = int(m.group(1))
     
     # TTFT estimate: prompt processing + one token generation step
     if result["prompt_eval_time_ms"] > 0 and result["eval_tokens"] > 0:
