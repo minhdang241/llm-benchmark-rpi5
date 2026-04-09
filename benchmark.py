@@ -503,6 +503,8 @@ def run_benchmark(config_id: str, model_filter: str = "", dry_run: bool = False)
                     )
                 else:
                     print(f"FAILED (exit {result['returncode']})")
+                    if result["parse_errors"]:
+                        print(f"    LOG: {result['parse_errors']}")
 
                 # Save to CSV
                 append_csv(csv_path, result)
