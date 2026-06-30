@@ -7,6 +7,7 @@ import argparse
 import shutil
 import subprocess
 import sys
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -86,9 +87,7 @@ def main() -> int:
                 if not downloaded_path.exists():
                     print(f"FAILED expected downloaded file missing: {downloaded_path}", file=sys.stderr)
                     return 1
-                if item.dest.exists():
-                    item.dest.unlink()
-                shutil.move(str(downloaded_path), str(item.dest))
+                rename_downloaded_file(downloaded_path, item.dest)
             print(f"saved {item.dest}")
 
     return 0
@@ -135,6 +134,27 @@ def shell_quote(value: str) -> str:
     return value
 
 
+def rename_downloaded_file(source: Path, dest: Path) -> None:
+    """Move downloaded file to harness filename, including case-only renames.
+
+    exFAT is often case-insensitive on macOS. In that case `source` and `dest`
+    can refer to the same file even though their strings differ, e.g.
+    `Q4_K_M.gguf` vs `q4_k_m.gguf`. A direct unlink-then-move deletes the source.
+    """
+
+    try:
+        if dest.exists() and source.samefile(dest):
+            temporary = dest.with_name(f".{dest.name}.rename-{uuid.uuid4().hex}")
+            source.rename(temporary)
+            temporary.rename(dest)
+            return
+    except FileNotFoundError:
+        pass
+
+    if dest.exists():
+        dest.unlink()
+    shutil.move(str(source), str(dest))
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
-

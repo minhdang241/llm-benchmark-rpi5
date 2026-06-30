@@ -53,13 +53,18 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--skip-missing", action="store_true")
     parser.add_argument("--no-summary", action="store_true")
+    parser.add_argument("--warmup-reps", type=int, default=None)
+    parser.add_argument("--measured-reps", type=int, default=None)
+    parser.add_argument("--generated-tokens", type=int, default=None)
     args = parser.parse_args()
 
     manifest_path = Path(args.manifest)
     manifest = load_manifest(manifest_path)
     root = manifest_path.resolve().parents[1]
     experiment = manifest["experiment"]
-    runtime = manifest["runtime"]
+    runtime = dict(manifest["runtime"])
+    if args.generated_tokens is not None:
+        runtime["generated_tokens"] = args.generated_tokens
     output_dir = Path(args.output_dir or experiment["output_dir"])
     if not output_dir.is_absolute():
         output_dir = root / output_dir
@@ -76,8 +81,16 @@ def main() -> int:
         cells = cells[: args.limit]
 
     prompt = get_prompt(runtime.get("prompt", "s1_pp512"))
-    measured_reps = int(experiment.get("measured_repetitions", 5))
-    warmup_reps = int(experiment.get("warmup_repetitions", 1))
+    measured_reps = (
+        args.measured_reps
+        if args.measured_reps is not None
+        else int(experiment.get("measured_repetitions", 5))
+    )
+    warmup_reps = (
+        args.warmup_reps
+        if args.warmup_reps is not None
+        else int(experiment.get("warmup_repetitions", 1))
+    )
     timeout_seconds = int(experiment.get("timeout_seconds", 1800))
     total_reps = warmup_reps + measured_reps
     record_missing = bool(experiment.get("record_missing_models", True))
