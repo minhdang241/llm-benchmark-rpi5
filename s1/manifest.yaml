@@ -1,0 +1,67 @@
+experiment:
+  id: S1
+  description: Feasibility map and harness validation on one Raspberry Pi 5
+  output_dir: logs/s1
+  measured_repetitions: 5
+  warmup_repetitions: 1
+  timeout_seconds: 1800
+  tight_rss_fraction: 0.90
+  record_missing_models: true
+
+runtime:
+  name: llama.cpp
+  binary: ../llama.cpp/build/bin/llama-completion
+  threads: 4
+  temperature: 0.0
+  context_size: 2048
+  generated_tokens: 128
+  prompt: s1_pp512
+  extra_args:
+    - --simple-io
+    - --single-turn
+    - --no-display-prompt
+    - -no-cnv
+
+cells:
+  - model_id: qwen3-0.6b
+    role: L1
+    model: Qwen3-0.6B
+    quants: [Q8_0, Q6_K, Q5_K_M, Q4_K_M, Q3_K_M, Q2_K, Q4_0]
+    path_template: models/llama/tierA/qwen3-0.6B/qwen3-0.6b-{quant_lower}.gguf
+
+  - model_id: qwen3-1.7b
+    role: L2
+    model: Qwen3-1.7B
+    quants: [Q8_0, Q6_K, Q5_K_M, Q4_K_M, Q3_K_M, Q2_K, Q4_0]
+    path_template: models/llama/tierA/qwen3-1.7B/qwen3-1.7b-{quant_lower}.gguf
+
+  - model_id: qwen3-4b
+    role: L3
+    model: Qwen3-4B
+    quants: [Q8_0, Q6_K, Q5_K_M, Q4_K_M, Q3_K_M, Q2_K, Q4_0]
+    path_template: models/llama/tierB/qwen3-4B/qwen3-4b-{quant_lower}.gguf
+
+  - model_id: qwen3-8b
+    role: L4
+    model: Qwen3-8B
+    quants: [Q8_0, Q6_K, Q5_K_M, Q4_K_M, Q3_K_M, Q2_K, Q4_0]
+    path_template: models/llama/tierB/qwen3-8B/qwen3-8b-{quant_lower}.gguf
+
+  - model_id: qwen3-14b
+    role: L5
+    model: Qwen3-14B
+    quants: [Q4_K_M, Q3_K_M, Q4_0]
+    path_template: models/llama/tierC/qwen3-14B/qwen3-14b-{quant_lower}.gguf
+
+  - model_id: gemma-3-4b-it
+    role: F1
+    model: Gemma-3-4B-it
+    quants: [Q4_K_M]
+    path_template: models/llama/tierB/gemma-3-4B-it/gemma-3-4b-it-{quant_lower}.gguf
+
+  - model_id: llama-3.2-3b-instruct
+    role: F2
+    model: Llama-3.2-3B-Instruct
+    quants: [Q4_K_M]
+    path_template: models/llama/tierA/llama-3.2-3B/llama-3.2-3b-instruct-{quant_lower}.gguf
+
