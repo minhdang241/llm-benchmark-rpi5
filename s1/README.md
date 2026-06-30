@@ -50,6 +50,38 @@ The Linux RSS value is parsed from `Maximum resident set size (kbytes)`.
 The runner also reads `/proc/vmstat` before and after each run to detect swap
 activity.
 
+## Download S1 Models On The Pi
+
+Install the requirements and log in to Hugging Face if you need gated models:
+
+```bash
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
+venv/bin/hf auth login
+```
+
+Check the model download map without downloading files:
+
+```bash
+venv/bin/python -m s1.download_models --dry-run
+```
+
+Download only one cell first:
+
+```bash
+venv/bin/python -m s1.download_models --only qwen3-1.7b --only Q4_0
+```
+
+Download the full S1 map:
+
+```bash
+venv/bin/python -m s1.download_models
+```
+
+The download manifest is `s1/download_manifest.yaml`. Hugging Face repo/file
+names vary by uploader, so if `--dry-run` reports a missing file, update that
+entry in the download manifest before starting the full download.
+
 ## Outputs
 
 Each run directory contains:
@@ -69,4 +101,3 @@ Verdicts are:
 - `TIMEOUT`: exceeded the configured timeout
 - `FAIL`: non-OOM runtime failure
 - `MISSING_MODEL`: model file not present in the manifest path
-
