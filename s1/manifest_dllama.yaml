@@ -23,26 +23,26 @@ cells:
     role: L1
     model: Qwen3-0.6B
     quants: [Q4_0]
-    path_template: ../distributed-llama/models/qwen3_0.6b_q40/dllama_model_qwen3_0.6b_q40.m
-    tokenizer_template: ../distributed-llama/models/qwen3_0.6b_q40/dllama_tokenizer_qwen3_0.6b_q40.t
+    path_template: models/dllama/qwen3_0.6b_q40/dllama_model_qwen3_0.6b_q40.m
+    tokenizer_template: models/dllama/qwen3_0.6b_q40/dllama_tokenizer_qwen3_0.6b_q40.t
 
   - model_id: qwen3-1.7b
     role: L2
     model: Qwen3-1.7B
     quants: [Q4_0]
-    path_template: ../distributed-llama/models/qwen3_1.7b_q40/dllama_model_qwen3_1.7b_q40.m
-    tokenizer_template: ../distributed-llama/models/qwen3_1.7b_q40/dllama_tokenizer_qwen3_1.7b_q40.t
+    path_template: models/dllama/qwen3_1.7b_q40/dllama_model_qwen3_1.7b_q40.m
+    tokenizer_template: models/dllama/qwen3_1.7b_q40/dllama_tokenizer_qwen3_1.7b_q40.t
 
   - model_id: qwen3-8b
     role: L4
     model: Qwen3-8B
     quants: [Q4_0]
-    path_template: ../distributed-llama/models/qwen3_8b_q40/dllama_model_qwen3_8b_q40.m
-    tokenizer_template: ../distributed-llama/models/qwen3_8b_q40/dllama_tokenizer_qwen3_8b_q40.t
+    path_template: models/dllama/qwen3_8b_q40/dllama_model_qwen3_8b_q40.m
+    tokenizer_template: models/dllama/qwen3_8b_q40/dllama_tokenizer_qwen3_8b_q40.t
 
   - model_id: qwen3-14b
     role: L5
     model: Qwen3-14B
     quants: [Q4_0]
-    path_template: ../distributed-llama/models/qwen3_14b_q40/dllama_model_qwen3_14b_q40.m
-    tokenizer_template: ../distributed-llama/models/qwen3_14b_q40/dllama_tokenizer_qwen3_14b_q40.t
+    path_template: models/dllama/qwen3_14b_q40/dllama_model_qwen3_14b_q40.m
+    tokenizer_template: models/dllama/qwen3_14b_q40/dllama_tokenizer_qwen3_14b_q40.t
