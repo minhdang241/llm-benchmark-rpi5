@@ -12,7 +12,6 @@ def s1_pp512() -> str:
         "summarizes recent events, and chooses a concise action for an operator."
     )
     return (
-        "/no_think\n\n"
         "Read the following repeated operations log and produce a short technical "
         "answer about the likely system bottleneck.\n\n"
         + " ".join(sentence for _ in range(30))

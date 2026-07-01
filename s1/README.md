@@ -7,8 +7,8 @@ It is intentionally separate from the expired `benchmark.py` path. The runner
 does reuse the llama.cpp timing parsing pattern, but memory comes from
 `/usr/bin/time`, not from periodic `psutil` sampling.
 
-The S1 workload prompt is prefixed with `/no_think` so Qwen thinking mode is
-disabled during the feasibility and throughput screen.
+The S1 workload prompt is shared across llama.cpp and dllama during the
+feasibility and throughput screen.
 
 ## Dry Run
 
