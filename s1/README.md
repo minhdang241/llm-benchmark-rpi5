@@ -7,6 +7,9 @@ It is intentionally separate from the expired `benchmark.py` path. The runner
 does reuse the llama.cpp timing parsing pattern, but memory comes from
 `/usr/bin/time`, not from periodic `psutil` sampling.
 
+The S1 workload prompt is prefixed with `/no_think` so Qwen thinking mode is
+disabled during the feasibility and throughput screen.
+
 ## Dry Run
 
 ```bash
@@ -50,6 +53,47 @@ The Linux RSS value is parsed from `Maximum resident set size (kbytes)`.
 The runner also reads `/proc/vmstat` before and after each run to detect swap
 activity.
 
+## Run Distributed Llama Q4_0/Q40 Cells
+
+Use the dllama manifest:
+
+```bash
+venv/bin/python -m s1.run_s1 --manifest s1/manifest_dllama.yaml --skip-missing
+```
+
+Fast smoke test for one dllama cell:
+
+```bash
+venv/bin/python -m s1.run_s1 \
+  --manifest s1/manifest_dllama.yaml \
+  --only qwen3-1.7b \
+  --only Q4_0 \
+  --warmup-reps 0 \
+  --measured-reps 1 \
+  --generated-tokens 16
+```
+
+Download the Distributed Llama Q40 model/tokenizer files reproducibly:
+
+```bash
+venv/bin/python -m s1.download_dllama_models --print-commands
+```
+
+On Mac with the SanDisk SSD mounted:
+
+```bash
+venv/bin/python -m s1.download_dllama_models \
+  --models-dir "/Volumes/Anh Linh/dllama-models"
+```
+
+Download only one dllama cell first:
+
+```bash
+venv/bin/python -m s1.download_dllama_models \
+  --models-dir "/Volumes/Anh Linh/dllama-models" \
+  --only qwen3-1.7b
+```
+
 ## Download S1 Models On The Pi
 
 Install the requirements and log in to Hugging Face if you need gated models:
@@ -91,6 +135,12 @@ Each run directory contains:
 - `s1_summary.csv`: measured repetitions summarized by model and quant
 - `s1_feasibility_heatmap.svg`: compact verdict heatmap
 - `raw/...`: stdout, stderr, `/usr/bin/time` output, and command JSON
+
+Pretty-print a summary in the terminal:
+
+```bash
+venv/bin/python -m s1.print_summary logs/s1/<timestamp>/s1_summary.csv
+```
 
 Verdicts are:
 

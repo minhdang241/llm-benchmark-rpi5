@@ -29,7 +29,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised only outside the ven
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from s1.parsers import parse_llamacpp_output, parse_time_output
+from s1.parsers import parse_dllama_output, parse_llamacpp_output, parse_time_output
 from s1.prompts import get_prompt
 from s1.report import write_summary
 from s1.system import host_metadata, read_vmstat, swap_delta, total_memory_kb
@@ -42,6 +42,7 @@ class Cell:
     role: str
     quant: str
     model_path: Path
+    tokenizer_path: Path | None = None
 
 
 def main() -> int:
@@ -100,8 +101,9 @@ def main() -> int:
 
     rows: list[dict] = []
     for cell in cells:
-        if not cell.model_path.exists():
-            message = f"MISSING {cell.model_id} {cell.quant}: {cell.model_path}"
+        missing_path = first_missing_path(cell)
+        if missing_path:
+            message = f"MISSING {cell.model_id} {cell.quant}: {missing_path}"
             if args.skip_missing or not record_missing:
                 print(f"skip {message}")
                 continue
@@ -112,7 +114,7 @@ def main() -> int:
                 append_jsonl(run_dir / "s1_cells.jsonl", row)
             continue
 
-        command = build_llamacpp_command(runtime, cell.model_path, prompt)
+        command = build_command(runtime, cell, prompt)
         if args.dry_run:
             print(f"{cell_key(cell)}")
             print("  " + shlex.join(command))
@@ -159,6 +161,11 @@ def expand_cells(manifest: dict, root: Path) -> list[Cell]:
             model_path = Path(entry["path_template"].format(**format_values))
             if not model_path.is_absolute():
                 model_path = root / model_path
+            tokenizer_path = None
+            if entry.get("tokenizer_template"):
+                tokenizer_path = Path(entry["tokenizer_template"].format(**format_values))
+                if not tokenizer_path.is_absolute():
+                    tokenizer_path = root / tokenizer_path
             cells.append(
                 Cell(
                     model_id=entry["model_id"],
@@ -166,9 +173,21 @@ def expand_cells(manifest: dict, root: Path) -> list[Cell]:
                     role=entry.get("role", ""),
                     quant=quant,
                     model_path=model_path,
+                    tokenizer_path=tokenizer_path,
                 )
             )
     return cells
+
+
+def build_command(runtime: dict, cell: Cell, prompt: str) -> list[str]:
+    runtime_name = runtime.get("name", "llama.cpp")
+    if runtime_name == "llama.cpp":
+        return build_llamacpp_command(runtime, cell.model_path, prompt)
+    if runtime_name == "distributed_llama":
+        if cell.tokenizer_path is None:
+            raise ValueError(f"dllama cell requires tokenizer_template: {cell_key(cell)}")
+        return build_dllama_command(runtime, cell.model_path, cell.tokenizer_path, prompt)
+    raise ValueError(f"Unknown runtime name: {runtime_name}")
 
 
 def build_llamacpp_command(runtime: dict, model_path: Path, prompt: str) -> list[str]:
@@ -187,6 +206,30 @@ def build_llamacpp_command(runtime: dict, model_path: Path, prompt: str) -> list
     ]
     command.extend(str(arg) for arg in runtime.get("extra_args", []))
     command.extend(["-p", prompt])
+    return command
+
+
+def build_dllama_command(
+    runtime: dict, model_path: Path, tokenizer_path: Path, prompt: str
+) -> list[str]:
+    command = [
+        runtime["binary"],
+        "inference",
+        "--model",
+        str(model_path),
+        "--tokenizer",
+        str(tokenizer_path),
+        "--steps",
+        str(runtime.get("generated_tokens", 128)),
+        "--temperature",
+        str(runtime.get("temperature", 0.0)),
+        "--nthreads",
+        str(runtime.get("threads", 4)),
+    ]
+    if runtime.get("buffer_float_type"):
+        command.extend(["--buffer-float-type", str(runtime["buffer_float_type"])])
+    command.extend(str(arg) for arg in runtime.get("extra_args", []))
+    command.extend(["--prompt", prompt])
     return command
 
 
@@ -250,7 +293,7 @@ def run_one(
     if wrapped.time_in_stderr:
         time_path.write_text(time_text, encoding="utf-8", errors="replace")
 
-    llama = parse_llamacpp_output(stderr_text, stdout_text)
+    metrics = parse_runtime_output(runtime, stderr_text, stdout_text)
     time_metrics = parse_time_output(time_text, sys.platform)
     mem_total_kb = total_memory_kb()
     verdict = classify(
@@ -284,25 +327,34 @@ def run_one(
             "time_rss_unit": time_metrics.raw_unit,
             "pgswapin_delta": pgswapin_delta if pgswapin_delta is not None else "",
             "pgswapout_delta": pgswapout_delta if pgswapout_delta is not None else "",
-            "load_time_ms": value_or_blank(llama.load_time_ms),
-            "prompt_eval_time_ms": value_or_blank(llama.prompt_eval_time_ms),
-            "prompt_tokens": value_or_blank(llama.prompt_tokens),
-            "prompt_rate_tps": value_or_blank(llama.prompt_rate_tps),
-            "eval_time_ms": value_or_blank(llama.eval_time_ms),
-            "eval_tokens": value_or_blank(llama.eval_tokens),
-            "eval_rate_tps": value_or_blank(llama.eval_rate_tps),
-            "total_time_ms": value_or_blank(llama.total_time_ms),
-            "total_tokens": value_or_blank(llama.total_tokens),
-            "ttft_ms": value_or_blank(llama.ttft_ms),
+            "load_time_ms": value_or_blank(metrics.load_time_ms),
+            "prompt_eval_time_ms": value_or_blank(metrics.prompt_eval_time_ms),
+            "prompt_tokens": value_or_blank(metrics.prompt_tokens),
+            "prompt_rate_tps": value_or_blank(metrics.prompt_rate_tps),
+            "eval_time_ms": value_or_blank(metrics.eval_time_ms),
+            "eval_tokens": value_or_blank(metrics.eval_tokens),
+            "eval_rate_tps": value_or_blank(metrics.eval_rate_tps),
+            "total_time_ms": value_or_blank(metrics.total_time_ms),
+            "total_tokens": value_or_blank(metrics.total_tokens),
+            "ttft_ms": value_or_blank(metrics.ttft_ms),
             "time_elapsed_seconds": value_or_blank(time_metrics.elapsed_seconds),
             "time_exit_status": value_or_blank(time_metrics.exit_status),
             "stdout_path": str(stdout_path),
             "stderr_path": str(stderr_path),
             "time_path": str(time_path),
-            "parse_errors": "; ".join(llama.parse_errors + time_metrics.parse_errors),
+            "parse_errors": "; ".join(metrics.parse_errors + time_metrics.parse_errors),
         }
     )
     return row
+
+
+def parse_runtime_output(runtime: dict, stderr_text: str, stdout_text: str):
+    runtime_name = runtime.get("name", "llama.cpp")
+    if runtime_name == "llama.cpp":
+        return parse_llamacpp_output(stderr_text, stdout_text)
+    if runtime_name == "distributed_llama":
+        return parse_dllama_output(stderr_text, stdout_text)
+    raise ValueError(f"Unknown runtime name: {runtime_name}")
 
 
 @dataclass
@@ -406,9 +458,18 @@ def base_row(cell: Cell, runtime: dict, experiment: dict, rep_index: int, phase:
         "role": cell.role,
         "quant": cell.quant,
         "model_path": str(cell.model_path),
+        "tokenizer_path": str(cell.tokenizer_path) if cell.tokenizer_path else "",
         "rep_index": rep_index,
         "phase": phase,
     }
+
+
+def first_missing_path(cell: Cell) -> Path | None:
+    if not cell.model_path.exists():
+        return cell.model_path
+    if cell.tokenizer_path is not None and not cell.tokenizer_path.exists():
+        return cell.tokenizer_path
+    return None
 
 
 def append_csv(path: Path, row: dict) -> None:

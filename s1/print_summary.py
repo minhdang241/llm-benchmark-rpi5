@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 DEFAULT_COLUMNS = [
+    ("runtime", "runtime"),
     ("model_id", "model"),
     ("quant", "quant"),
     ("runs", "runs"),
@@ -79,4 +80,3 @@ def format_cell(value: object) -> str:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

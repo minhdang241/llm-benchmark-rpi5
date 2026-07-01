@@ -100,6 +100,49 @@ def parse_llamacpp_output(stderr_text: str, stdout_text: str = "") -> LlamaMetri
     return result
 
 
+def parse_dllama_output(stderr_text: str, stdout_text: str = "") -> LlamaMetrics:
+    """Extract Distributed Llama timing metrics."""
+
+    text = (stderr_text + "\n" + stdout_text).replace("\r\n", "\n").replace("\r", "\n")
+    result = LlamaMetrics(load_time_ms=0.0)
+
+    match = re.search(r"Eval\s+(\d+)\s+ms", text)
+    if match:
+        result.prompt_eval_time_ms = float(match.group(1))
+
+    match = re.search(
+        r"Evaluation\s+nBatches:\s+\d+\s+nTokens:\s+(\d+)\s+tokens/s:\s+([\d.]+)\s+\(([\d.]+)\s+ms/tok\)",
+        text,
+    )
+    if match:
+        result.prompt_tokens = int(match.group(1))
+        result.prompt_rate_tps = float(match.group(2))
+        if result.prompt_eval_time_ms is None:
+            result.prompt_eval_time_ms = round(int(match.group(1)) * float(match.group(3)), 2)
+    else:
+        result.parse_errors.append("Evaluation section not found")
+
+    match = re.search(
+        r"Prediction\s+nTokens:\s+(\d+)\s+tokens/s:\s+([\d.]+)\s+\(([\d.]+)\s+ms/tok\)",
+        text,
+    )
+    if match:
+        result.eval_tokens = int(match.group(1))
+        result.eval_rate_tps = float(match.group(2))
+        result.eval_time_ms = round(int(match.group(1)) * float(match.group(3)), 2)
+    else:
+        result.parse_errors.append("Prediction section not found")
+
+    pred_times = re.findall(r"Pred\s+(\d+)\s+ms", text)
+    if pred_times and result.prompt_eval_time_ms is not None:
+        result.ttft_ms = result.prompt_eval_time_ms + float(pred_times[0])
+
+    if result.prompt_tokens is not None and result.eval_tokens is not None:
+        result.total_tokens = result.prompt_tokens + result.eval_tokens
+
+    return result
+
+
 def parse_time_output(text: str, platform_name: str) -> TimeMetrics:
     """Parse GNU `/usr/bin/time -v` or macOS `/usr/bin/time -l` output."""
 
@@ -151,4 +194,3 @@ def parse_gnu_elapsed(value: str) -> Optional[float]:
         return float(parts[0])
     except ValueError:
         return None
-

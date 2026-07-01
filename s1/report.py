@@ -32,15 +32,16 @@ VERDICT_COLOR = {
 
 def write_summary(rows: list[dict], output_dir: Path) -> Path:
     measured = [row for row in rows if row.get("phase") == "measured"]
-    grouped: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    grouped: dict[tuple[str, str, str], list[dict]] = defaultdict(list)
     for row in measured:
-        grouped[(row["model_id"], row["quant"])].append(row)
+        grouped[(row.get("runtime", ""), row["model_id"], row["quant"])].append(row)
 
     summary_rows = []
-    for (model_id, quant), group in sorted(grouped.items()):
+    for (runtime, model_id, quant), group in sorted(grouped.items()):
         verdict = worst_verdict(row["verdict"] for row in group)
         summary_rows.append(
             {
+                "runtime": runtime,
                 "model_id": model_id,
                 "model": group[0].get("model", ""),
                 "role": group[0].get("role", ""),

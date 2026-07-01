@@ -1,0 +1,34 @@
+# Distributed Llama Q40/Q4_0 model download map for S1.
+#
+# These names are consumed by distributed-llama/launch.py. The expected files
+# match s1/manifest_dllama.yaml.
+
+models:
+  - model_id: qwen3-0.6b
+    model: Qwen3-0.6B
+    launch_name: qwen3_0.6b_q40
+    expected_files:
+      - dllama_model_qwen3_0.6b_q40.m
+      - dllama_tokenizer_qwen3_0.6b_q40.t
+
+  - model_id: qwen3-1.7b
+    model: Qwen3-1.7B
+    launch_name: qwen3_1.7b_q40
+    expected_files:
+      - dllama_model_qwen3_1.7b_q40.m
+      - dllama_tokenizer_qwen3_1.7b_q40.t
+
+  - model_id: qwen3-8b
+    model: Qwen3-8B
+    launch_name: qwen3_8b_q40
+    expected_files:
+      - dllama_model_qwen3_8b_q40.m
+      - dllama_tokenizer_qwen3_8b_q40.t
+
+  - model_id: qwen3-14b
+    model: Qwen3-14B
+    launch_name: qwen3_14b_q40
+    expected_files:
+      - dllama_model_qwen3_14b_q40.m
+      - dllama_tokenizer_qwen3_14b_q40.t
+

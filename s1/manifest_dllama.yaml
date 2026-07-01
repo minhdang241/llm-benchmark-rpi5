@@ -1,0 +1,48 @@
+experiment:
+  id: S1_DLLAMA_Q40
+  description: Distributed Llama Q4_0/Q40 single-node feasibility collection
+  output_dir: logs/s1_dllama
+  measured_repetitions: 5
+  warmup_repetitions: 1
+  timeout_seconds: 1800
+  tight_rss_fraction: 0.90
+  record_missing_models: true
+
+runtime:
+  name: distributed_llama
+  binary: ../distributed-llama/dllama
+  threads: 4
+  temperature: 0.0
+  generated_tokens: 128
+  prompt: s1_pp512
+  buffer_float_type: q80
+  extra_args: []
+
+cells:
+  - model_id: qwen3-0.6b
+    role: L1
+    model: Qwen3-0.6B
+    quants: [Q4_0]
+    path_template: ../distributed-llama/models/qwen3_0.6b_q40/dllama_model_qwen3_0.6b_q40.m
+    tokenizer_template: ../distributed-llama/models/qwen3_0.6b_q40/dllama_tokenizer_qwen3_0.6b_q40.t
+
+  - model_id: qwen3-1.7b
+    role: L2
+    model: Qwen3-1.7B
+    quants: [Q4_0]
+    path_template: ../distributed-llama/models/qwen3_1.7b_q40/dllama_model_qwen3_1.7b_q40.m
+    tokenizer_template: ../distributed-llama/models/qwen3_1.7b_q40/dllama_tokenizer_qwen3_1.7b_q40.t
+
+  - model_id: qwen3-8b
+    role: L4
+    model: Qwen3-8B
+    quants: [Q4_0]
+    path_template: ../distributed-llama/models/qwen3_8b_q40/dllama_model_qwen3_8b_q40.m
+    tokenizer_template: ../distributed-llama/models/qwen3_8b_q40/dllama_tokenizer_qwen3_8b_q40.t
+
+  - model_id: qwen3-14b
+    role: L5
+    model: Qwen3-14B
+    quants: [Q4_0]
+    path_template: ../distributed-llama/models/qwen3_14b_q40/dllama_model_qwen3_14b_q40.m
+    tokenizer_template: ../distributed-llama/models/qwen3_14b_q40/dllama_tokenizer_qwen3_14b_q40.t
