@@ -53,6 +53,78 @@ The Linux RSS value is parsed from `Maximum resident set size (kbytes)`.
 The runner also reads `/proc/vmstat` before and after each run to detect swap
 activity.
 
+## Link Pi Models To An External SSD
+
+The S1 manifests expect model files under `models/...` from the benchmark repo
+root. On the Pi, keep the large files on the SSD and make `models` a symlink.
+
+Find the SSD mount point:
+
+```bash
+lsblk -f
+```
+
+If the SSD is not mounted yet, mount the correct partition, for example:
+
+```bash
+sudo mkdir -p /mnt/ssd
+sudo mount /dev/sda1 /mnt/ssd
+```
+
+Create or reuse a model root on the SSD. The preferred layout is:
+
+```text
+/mnt/ssd/models/llama/...
+/mnt/ssd/models/dllama/...
+```
+
+From the benchmark repo, link `models` to that SSD model root:
+
+```bash
+cd ~/thesis/benchmark
+
+if [ -L models ]; then
+  readlink -f models
+elif [ -e models ]; then
+  mv models "models.local.$(date +%Y%m%d_%H%M%S)"
+fi
+
+ln -s /mnt/ssd/models models
+ls -la models
+```
+
+If the dllama files are in a separate SSD folder such as
+`/mnt/ssd/dllama-models`, link only the nested dllama path:
+
+```bash
+mkdir -p /mnt/ssd/models
+
+if [ -L /mnt/ssd/models/dllama ]; then
+  readlink -f /mnt/ssd/models/dllama
+elif [ -e /mnt/ssd/models/dllama ]; then
+  mv /mnt/ssd/models/dllama "/mnt/ssd/models/dllama.local.$(date +%Y%m%d_%H%M%S)"
+fi
+
+ln -s /mnt/ssd/dllama-models /mnt/ssd/models/dllama
+ls -la /mnt/ssd/models/dllama
+```
+
+Verify path resolution before running data collection:
+
+```bash
+venv/bin/python -m s1.run_s1 \
+  --manifest s1/manifest.yaml \
+  --dry-run \
+  --only qwen3-4b \
+  --only Q4_K_M
+
+venv/bin/python -m s1.run_s1 \
+  --manifest s1/manifest_dllama.yaml \
+  --dry-run \
+  --only qwen3-1.7b \
+  --only Q4_0
+```
+
 ## Run Distributed Llama Q4_0/Q40 Cells
 
 Use the dllama manifest:

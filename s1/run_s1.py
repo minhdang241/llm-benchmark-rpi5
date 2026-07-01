@@ -288,18 +288,18 @@ def run_one(
     elif time_path.exists():
         time_text = time_path.read_text(encoding="utf-8", errors="replace")
 
-    stdout_path.write_text(stdout_text, encoding="utf-8", errors="replace")
-    stderr_path.write_text(stderr_text, encoding="utf-8", errors="replace")
+    stdout_path.write_text(stdout_text, encoding="utf-8", errors="replace") # type: ignore
+    stderr_path.write_text(stderr_text, encoding="utf-8", errors="replace") # type: ignore
     if wrapped.time_in_stderr:
-        time_path.write_text(time_text, encoding="utf-8", errors="replace")
+        time_path.write_text(time_text, encoding="utf-8", errors="replace") # type: ignore
 
-    metrics = parse_runtime_output(runtime, stderr_text, stdout_text)
-    time_metrics = parse_time_output(time_text, sys.platform)
+    metrics = parse_runtime_output(runtime, stderr_text, stdout_text) # type: ignore
+    time_metrics = parse_time_output(time_text, sys.platform) # type: ignore
     mem_total_kb = total_memory_kb()
     verdict = classify(
         returncode=proc_returncode,
         timed_out=timed_out,
-        stderr_text=stderr_text + "\n" + time_text,
+        stderr_text=stderr_text + "\n" + time_text, # type: ignore
         max_rss_kb=time_metrics.max_rss_kb,
         mem_total_kb=mem_total_kb,
         tight_fraction=float(experiment.get("tight_rss_fraction", 0.90)),

@@ -13,7 +13,7 @@ runtime:
   binary: ../distributed-llama/dllama
   threads: 4
   temperature: 0.0
-  generated_tokens: 128
+  generated_tokens: 768
   prompt: s1_pp512
   buffer_float_type: q80
   extra_args: []
