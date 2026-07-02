@@ -25,6 +25,8 @@ class LlamaMetrics:
 @dataclass
 class TimeMetrics:
     max_rss_kb: Optional[int] = None
+    user_time_seconds: Optional[float] = None
+    system_time_seconds: Optional[float] = None
     elapsed_seconds: Optional[float] = None
     exit_status: Optional[int] = None
     raw_unit: str = ""
@@ -168,9 +170,23 @@ def parse_time_output(text: str, platform_name: str) -> TimeMetrics:
     if elapsed:
         result.elapsed_seconds = parse_gnu_elapsed(elapsed.group(1))
     else:
-        mac_elapsed = re.search(r"^\s*([\d.]+)\s+real\b", text, re.MULTILINE)
+        mac_elapsed = re.search(
+            r"^\s*([\d.]+)\s+real\s+([\d.]+)\s+user\s+([\d.]+)\s+sys\b",
+            text,
+            re.MULTILINE,
+        )
         if mac_elapsed:
             result.elapsed_seconds = _float(mac_elapsed.group(1))
+            result.user_time_seconds = _float(mac_elapsed.group(2))
+            result.system_time_seconds = _float(mac_elapsed.group(3))
+
+    user_time = re.search(r"User time \(seconds\):\s*([\d.]+)", text, re.IGNORECASE)
+    if user_time:
+        result.user_time_seconds = _float(user_time.group(1))
+
+    system_time = re.search(r"System time \(seconds\):\s*([\d.]+)", text, re.IGNORECASE)
+    if system_time:
+        result.system_time_seconds = _float(system_time.group(1))
 
     status = re.search(r"Exit status:\s*(-?\d+)", text, re.IGNORECASE)
     if status:

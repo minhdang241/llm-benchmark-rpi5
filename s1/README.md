@@ -57,10 +57,10 @@ The runner also reads `/proc/vmstat` before and after each run to detect swap
 activity.
 
 CPU utilization is measured from explicit process CPU-time deltas, not
-`cpu_percent()`. The runner snapshots `Process(pid).cpu_times()` for the
-runtime process when the request starts and keeps the last observed sample
-before completion. `cpu_utilization = (delta_user + delta_system) / elapsed`,
-so 1.0 means one fully occupied core and 4.0 means four fully occupied cores.
+`cpu_percent()`. In this command-style S1 runner, the reported CPU fields use
+the final `/usr/bin/time` user/sys accounting for the completed runtime command:
+`cpu_utilization = (delta_user + delta_system) / elapsed`, so 1.0 means one
+fully occupied core and 4.0 means four fully occupied cores.
 `cpu_utilization_percent` is this core-equivalent value multiplied by 100 and
 may exceed 100%. `cpu_utilization_threads_percent` normalizes that value by
 the manifest's configured runtime thread count. Process CPU counters include

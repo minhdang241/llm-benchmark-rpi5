@@ -387,7 +387,7 @@ def run_one(
             "time_rss_unit": time_metrics.raw_unit,
             "pgswapin_delta": pgswapin_delta if pgswapin_delta is not None else "",
             "pgswapout_delta": pgswapout_delta if pgswapout_delta is not None else "",
-            **cpu_telemetry.as_row(runtime_threads(runtime)),
+            **cpu_accounting_row(time_metrics, runtime_threads(runtime), cpu_telemetry),
             "load_time_ms": value_or_blank(metrics.load_time_ms),
             "prompt_eval_time_ms": value_or_blank(metrics.prompt_eval_time_ms),
             "prompt_tokens": value_or_blank(metrics.prompt_tokens),
@@ -404,7 +404,7 @@ def run_one(
             "stderr_path": str(stderr_path),
             "time_path": str(time_path),
             "parse_errors": "; ".join(
-                metrics.parse_errors + time_metrics.parse_errors + cpu_telemetry.parse_errors
+                metrics.parse_errors + time_metrics.parse_errors
             ),
         }
     )
@@ -418,6 +418,41 @@ def parse_runtime_output(runtime: dict, stderr_text: str, stdout_text: str):
     if runtime_name == "distributed_llama":
         return parse_dllama_output(stderr_text, stdout_text)
     raise ValueError(f"Unknown runtime name: {runtime_name}")
+
+
+def cpu_accounting_row(time_metrics, runtime_threads_value: int | None, fallback: CpuTelemetry) -> dict:
+    if (
+        time_metrics.user_time_seconds is not None
+        and time_metrics.system_time_seconds is not None
+        and time_metrics.elapsed_seconds
+        and time_metrics.elapsed_seconds > 0
+    ):
+        user_delta = time_metrics.user_time_seconds
+        system_delta = time_metrics.system_time_seconds
+        cpu_delta = user_delta + system_delta
+        utilization = cpu_delta / time_metrics.elapsed_seconds
+        threads_percent = (
+            utilization / runtime_threads_value * 100
+            if runtime_threads_value and runtime_threads_value > 0
+            else None
+        )
+        return {
+            "cpu_source": "time",
+            "cpu_target_pid": "",
+            "cpu_user_time_delta_s": round(user_delta, 6),
+            "cpu_system_time_delta_s": round(system_delta, 6),
+            "cpu_time_delta_s": round(cpu_delta, 6),
+            "cpu_elapsed_s": round(time_metrics.elapsed_seconds, 6),
+            "cpu_utilization": round(utilization, 6),
+            "cpu_utilization_percent": round(utilization * 100, 3),
+            "cpu_utilization_threads_percent": round(threads_percent, 3)
+            if threads_percent is not None
+            else "",
+        }
+
+    row = fallback.as_row(runtime_threads_value)
+    row["cpu_source"] = "psutil"
+    return row
 
 
 def run_timed_process(
@@ -659,6 +694,7 @@ def missing_rows(cell: Cell, runtime: dict, experiment: dict, total_reps: int) -
                 "time_rss_unit": "",
                 "pgswapin_delta": "",
                 "pgswapout_delta": "",
+                "cpu_source": "",
                 "cpu_target_pid": "",
                 "cpu_user_time_delta_s": "",
                 "cpu_system_time_delta_s": "",
