@@ -61,7 +61,10 @@ CPU utilization is measured from explicit process CPU-time deltas, not
 runtime process when the request starts and keeps the last observed sample
 before completion. `cpu_utilization = (delta_user + delta_system) / elapsed`,
 so 1.0 means one fully occupied core and 4.0 means four fully occupied cores.
-Process CPU counters include all threads in the runtime.
+`cpu_utilization_percent` is this core-equivalent value multiplied by 100 and
+may exceed 100%. `cpu_utilization_threads_percent` normalizes that value by
+the manifest's configured runtime thread count. Process CPU counters include
+all threads in the runtime.
 
 ## Link Pi Models To An External SSD
 

@@ -42,6 +42,7 @@ def write_summary(rows: list[dict], output_dir: Path) -> Path:
         summary_rows.append(
             {
                 "runtime": runtime,
+                "runtime_threads": group[0].get("runtime_threads", ""),
                 "model_id": model_id,
                 "model": group[0].get("model", ""),
                 "role": group[0].get("role", ""),
@@ -54,6 +55,9 @@ def write_summary(rows: list[dict], output_dir: Path) -> Path:
                 "mean_ttft_ms": mean_float(group, "ttft_ms"),
                 "mean_cpu_utilization": mean_float(group, "cpu_utilization"),
                 "mean_cpu_utilization_percent": mean_float(group, "cpu_utilization_percent"),
+                "mean_cpu_utilization_threads_percent": mean_float(
+                    group, "cpu_utilization_threads_percent"
+                ),
                 "max_pgswapin_delta": max_float(group, "pgswapin_delta"),
                 "max_pgswapout_delta": max_float(group, "pgswapout_delta"),
             }

@@ -63,7 +63,7 @@ class CpuTelemetry:
     last: CpuSnapshot | None = None
     parse_errors: list[str] = field(default_factory=list)
 
-    def as_row(self) -> dict:
+    def as_row(self, runtime_threads: int | None = None) -> dict:
         if self.start is None or self.last is None:
             return {
                 "cpu_target_pid": self.target_pid or "",
@@ -73,6 +73,7 @@ class CpuTelemetry:
                 "cpu_elapsed_s": "",
                 "cpu_utilization": "",
                 "cpu_utilization_percent": "",
+                "cpu_utilization_threads_percent": "",
             }
 
         user_delta = max(0.0, self.last.user_s - self.start.user_s)
@@ -80,6 +81,11 @@ class CpuTelemetry:
         cpu_delta = user_delta + system_delta
         elapsed = max(0.0, self.last.monotonic_s - self.start.monotonic_s)
         utilization = cpu_delta / elapsed if elapsed > 0 else None
+        threads_percent = (
+            utilization / runtime_threads * 100
+            if utilization is not None and runtime_threads and runtime_threads > 0
+            else None
+        )
         return {
             "cpu_target_pid": self.target_pid or "",
             "cpu_user_time_delta_s": round(user_delta, 6),
@@ -89,6 +95,9 @@ class CpuTelemetry:
             "cpu_utilization": round(utilization, 6) if utilization is not None else "",
             "cpu_utilization_percent": round(utilization * 100, 3)
             if utilization is not None
+            else "",
+            "cpu_utilization_threads_percent": round(threads_percent, 3)
+            if threads_percent is not None
             else "",
         }
 
@@ -378,7 +387,7 @@ def run_one(
             "time_rss_unit": time_metrics.raw_unit,
             "pgswapin_delta": pgswapin_delta if pgswapin_delta is not None else "",
             "pgswapout_delta": pgswapout_delta if pgswapout_delta is not None else "",
-            **cpu_telemetry.as_row(),
+            **cpu_telemetry.as_row(runtime_threads(runtime)),
             "load_time_ms": value_or_blank(metrics.load_time_ms),
             "prompt_eval_time_ms": value_or_blank(metrics.prompt_eval_time_ms),
             "prompt_tokens": value_or_blank(metrics.prompt_tokens),
@@ -657,6 +666,7 @@ def missing_rows(cell: Cell, runtime: dict, experiment: dict, total_reps: int) -
                 "cpu_elapsed_s": "",
                 "cpu_utilization": "",
                 "cpu_utilization_percent": "",
+                "cpu_utilization_threads_percent": "",
                 "load_time_ms": "",
                 "prompt_eval_time_ms": "",
                 "prompt_tokens": "",
@@ -683,6 +693,7 @@ def base_row(cell: Cell, runtime: dict, experiment: dict, rep_index: int, phase:
     return {
         "experiment_id": experiment.get("id", "S1"),
         "runtime": runtime.get("name", "llama.cpp"),
+        "runtime_threads": value_or_blank(runtime_threads(runtime)),
         "model_id": cell.model_id,
         "model": cell.model,
         "role": cell.role,
@@ -720,6 +731,13 @@ def append_jsonl(path: Path, row: dict) -> None:
 
 def value_or_blank(value):
     return "" if value is None else value
+
+
+def runtime_threads(runtime: dict) -> int | None:
+    try:
+        return int(runtime.get("threads", ""))
+    except (TypeError, ValueError):
+        return None
 
 
 def cell_key(cell: Cell) -> str:
