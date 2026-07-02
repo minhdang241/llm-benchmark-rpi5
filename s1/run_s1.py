@@ -11,15 +11,19 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import os
 import shlex
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+try:
+    import psutil
+except ModuleNotFoundError:  # pragma: no cover - exercised only outside the venv
+    psutil = None
 
 try:
     import yaml
@@ -43,6 +47,50 @@ class Cell:
     quant: str
     model_path: Path
     tokenizer_path: Path | None = None
+
+
+@dataclass
+class CpuSnapshot:
+    monotonic_s: float
+    user_s: float
+    system_s: float
+
+
+@dataclass
+class CpuTelemetry:
+    target_pid: int | None = None
+    start: CpuSnapshot | None = None
+    last: CpuSnapshot | None = None
+    parse_errors: list[str] = field(default_factory=list)
+
+    def as_row(self) -> dict:
+        if self.start is None or self.last is None:
+            return {
+                "cpu_target_pid": self.target_pid or "",
+                "cpu_user_time_delta_s": "",
+                "cpu_system_time_delta_s": "",
+                "cpu_time_delta_s": "",
+                "cpu_elapsed_s": "",
+                "cpu_utilization": "",
+                "cpu_utilization_percent": "",
+            }
+
+        user_delta = max(0.0, self.last.user_s - self.start.user_s)
+        system_delta = max(0.0, self.last.system_s - self.start.system_s)
+        cpu_delta = user_delta + system_delta
+        elapsed = max(0.0, self.last.monotonic_s - self.start.monotonic_s)
+        utilization = cpu_delta / elapsed if elapsed > 0 else None
+        return {
+            "cpu_target_pid": self.target_pid or "",
+            "cpu_user_time_delta_s": round(user_delta, 6),
+            "cpu_system_time_delta_s": round(system_delta, 6),
+            "cpu_time_delta_s": round(cpu_delta, 6),
+            "cpu_elapsed_s": round(elapsed, 6),
+            "cpu_utilization": round(utilization, 6) if utilization is not None else "",
+            "cpu_utilization_percent": round(utilization * 100, 3)
+            if utilization is not None
+            else "",
+        }
 
 
 def main() -> int:
@@ -114,7 +162,7 @@ def main() -> int:
                 append_jsonl(run_dir / "s1_cells.jsonl", row)
             continue
 
-        command = build_command(runtime, cell, prompt)
+        command = build_command(runtime, cell, prompt_for_cell(runtime, cell, prompt))
         if args.dry_run:
             print(f"{cell_key(cell)}")
             print("  " + shlex.join(command))
@@ -190,6 +238,19 @@ def build_command(runtime: dict, cell: Cell, prompt: str) -> list[str]:
     raise ValueError(f"Unknown runtime name: {runtime_name}")
 
 
+def prompt_for_cell(runtime: dict, cell: Cell, prompt: str) -> str:
+    if runtime.get("disable_qwen3_thinking", False) and is_qwen3_cell(cell):
+        stripped = prompt.lstrip()
+        if stripped.startswith("/no_think"):
+            return prompt
+        return "/no_think\n" + prompt
+    return prompt
+
+
+def is_qwen3_cell(cell: Cell) -> bool:
+    return "qwen3" in cell.model_id.lower() or "qwen3" in cell.model.lower()
+
+
 def build_llamacpp_command(runtime: dict, model_path: Path, prompt: str) -> list[str]:
     command = [
         runtime["binary"],
@@ -261,45 +322,35 @@ def run_one(
     time_text = ""
 
     wrapped = wrap_with_time(command, time_path)
-    try:
-        completed = subprocess.run(
-            wrapped.command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=timeout_seconds,
-            check=False,
-        )
-        proc_returncode = completed.returncode
-        stdout_text = completed.stdout
-        stderr_text = completed.stderr
-    except subprocess.TimeoutExpired as exc:
-        timed_out = True
-        proc_returncode = -1
-        stdout_text = exc.stdout or ""
-        stderr_text = exc.stderr or ""
+    proc_returncode, timed_out, cpu_telemetry = run_timed_process(
+        wrapped.command,
+        stdout_path,
+        stderr_path,
+        timeout_seconds,
+    )
 
     wall_time_ms = round((time.monotonic() - start) * 1000, 3)
     after_swap = read_vmstat()
     pgswapin_delta, pgswapout_delta = swap_delta(before_swap, after_swap)
+
+    stdout_text = stdout_path.read_text(encoding="utf-8", errors="replace")
+    stderr_text = stderr_path.read_text(encoding="utf-8", errors="replace")
 
     if wrapped.time_in_stderr:
         time_text = stderr_text
     elif time_path.exists():
         time_text = time_path.read_text(encoding="utf-8", errors="replace")
 
-    stdout_path.write_text(stdout_text, encoding="utf-8", errors="replace") # type: ignore
-    stderr_path.write_text(stderr_text, encoding="utf-8", errors="replace") # type: ignore
     if wrapped.time_in_stderr:
-        time_path.write_text(time_text, encoding="utf-8", errors="replace") # type: ignore
+        time_path.write_text(time_text, encoding="utf-8", errors="replace")
 
-    metrics = parse_runtime_output(runtime, stderr_text, stdout_text) # type: ignore
-    time_metrics = parse_time_output(time_text, sys.platform) # type: ignore
+    metrics = parse_runtime_output(runtime, stderr_text, stdout_text)
+    time_metrics = parse_time_output(time_text, sys.platform)
     mem_total_kb = total_memory_kb()
     verdict = classify(
         returncode=proc_returncode,
         timed_out=timed_out,
-        stderr_text=stderr_text + "\n" + time_text, # type: ignore
+        stderr_text=stderr_text + "\n" + time_text,
         max_rss_kb=time_metrics.max_rss_kb,
         mem_total_kb=mem_total_kb,
         tight_fraction=float(experiment.get("tight_rss_fraction", 0.90)),
@@ -327,6 +378,7 @@ def run_one(
             "time_rss_unit": time_metrics.raw_unit,
             "pgswapin_delta": pgswapin_delta if pgswapin_delta is not None else "",
             "pgswapout_delta": pgswapout_delta if pgswapout_delta is not None else "",
+            **cpu_telemetry.as_row(),
             "load_time_ms": value_or_blank(metrics.load_time_ms),
             "prompt_eval_time_ms": value_or_blank(metrics.prompt_eval_time_ms),
             "prompt_tokens": value_or_blank(metrics.prompt_tokens),
@@ -342,7 +394,9 @@ def run_one(
             "stdout_path": str(stdout_path),
             "stderr_path": str(stderr_path),
             "time_path": str(time_path),
-            "parse_errors": "; ".join(metrics.parse_errors + time_metrics.parse_errors),
+            "parse_errors": "; ".join(
+                metrics.parse_errors + time_metrics.parse_errors + cpu_telemetry.parse_errors
+            ),
         }
     )
     return row
@@ -355,6 +409,175 @@ def parse_runtime_output(runtime: dict, stderr_text: str, stdout_text: str):
     if runtime_name == "distributed_llama":
         return parse_dllama_output(stderr_text, stdout_text)
     raise ValueError(f"Unknown runtime name: {runtime_name}")
+
+
+def run_timed_process(
+    command: list[str],
+    stdout_path: Path,
+    stderr_path: Path,
+    timeout_seconds: int,
+) -> tuple[int | None, bool, CpuTelemetry]:
+    telemetry = CpuTelemetry()
+    deadline = time.monotonic() + timeout_seconds
+    timed_out = False
+
+    with stdout_path.open("w", encoding="utf-8") as stdout_handle, stderr_path.open(
+        "w", encoding="utf-8"
+    ) as stderr_handle:
+        proc = subprocess.Popen(
+            command,
+            stdout=stdout_handle,
+            stderr=stderr_handle,
+            text=True,
+        )
+        telemetry = start_cpu_telemetry(proc.pid, command_is_time_wrapper(command))
+
+        while proc.poll() is None:
+            sample = sample_cpu_tree(telemetry.target_pid)
+            if sample is not None:
+                telemetry.last = sample
+
+            if time.monotonic() >= deadline:
+                timed_out = True
+                terminate_process_tree(proc)
+                break
+
+            time.sleep(0.05)
+
+        if not timed_out:
+            sample = sample_cpu_tree(telemetry.target_pid)
+            if sample is not None:
+                telemetry.last = sample
+
+        if timed_out:
+            try:
+                returncode = proc.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                returncode = proc.wait()
+        else:
+            returncode = proc.wait()
+
+    if timed_out:
+        returncode = -1
+    if telemetry.start is not None and telemetry.last is None:
+        telemetry.last = telemetry.start
+    return returncode, timed_out, telemetry
+
+
+def start_cpu_telemetry(wrapper_pid: int, require_child: bool) -> CpuTelemetry:
+    telemetry = CpuTelemetry()
+    if psutil is None:
+        telemetry.parse_errors.append("psutil is required for cpu_times telemetry")
+        return telemetry
+
+    telemetry.target_pid = resolve_measured_pid(wrapper_pid, require_child)
+    if telemetry.target_pid is None:
+        telemetry.parse_errors.append("could not resolve runtime pid for cpu_times")
+        return telemetry
+
+    telemetry.start = sample_cpu_tree(telemetry.target_pid)
+    telemetry.last = telemetry.start
+    if telemetry.start is None:
+        telemetry.parse_errors.append("could not sample initial cpu_times")
+    return telemetry
+
+
+def command_is_time_wrapper(command: list[str]) -> bool:
+    return bool(command) and Path(command[0]).name == "time"
+
+
+def resolve_measured_pid(wrapper_pid: int, require_child: bool) -> int | None:
+    if psutil is None:
+        return None
+
+    fallback_pid: int | None = None if require_child else wrapper_pid
+    deadline = time.monotonic() + 1.0
+    while time.monotonic() < deadline:
+        try:
+            wrapper = psutil.Process(wrapper_pid)
+            if not require_child:
+                fallback_pid = wrapper.pid
+        except (psutil.NoSuchProcess, psutil.AccessDenied, PermissionError):
+            return fallback_pid
+
+        try:
+            children = wrapper.children(recursive=False)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, PermissionError):
+            return fallback_pid
+
+        live_children = [child for child in children if child.is_running()]
+        if live_children:
+            return live_children[0].pid
+        time.sleep(0.01)
+
+    return fallback_pid
+
+
+def sample_cpu_tree(root_pid: int | None) -> CpuSnapshot | None:
+    if psutil is None or root_pid is None:
+        return None
+
+    try:
+        root = psutil.Process(root_pid)
+    except (psutil.NoSuchProcess, psutil.AccessDenied, PermissionError):
+        return None
+
+    try:
+        processes = [root, *root.children(recursive=True)]
+    except (psutil.NoSuchProcess, psutil.AccessDenied, PermissionError):
+        processes = [root]
+
+    user_s = 0.0
+    system_s = 0.0
+    sampled = False
+    for proc in processes:
+        try:
+            times = proc.cpu_times()
+        except (psutil.NoSuchProcess, psutil.AccessDenied, PermissionError):
+            continue
+        user_s += times.user
+        system_s += times.system
+        sampled = True
+
+    if not sampled:
+        return None
+    return CpuSnapshot(monotonic_s=time.monotonic(), user_s=user_s, system_s=system_s)
+
+
+def terminate_process_tree(proc: subprocess.Popen) -> None:
+    if psutil is None:
+        proc.kill()
+        return
+
+    try:
+        root = psutil.Process(proc.pid)
+    except (psutil.NoSuchProcess, psutil.AccessDenied, PermissionError):
+        return
+
+    try:
+        processes = root.children(recursive=True)
+    except (psutil.NoSuchProcess, psutil.AccessDenied, PermissionError):
+        processes = []
+    processes.append(root)
+
+    for process in processes:
+        try:
+            process.terminate()
+        except (psutil.NoSuchProcess, psutil.AccessDenied, PermissionError):
+            continue
+
+    try:
+        gone, alive = psutil.wait_procs(processes, timeout=2.0)
+    except PermissionError:
+        proc.kill()
+        return
+    _ = gone
+    for process in alive:
+        try:
+            process.kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied, PermissionError):
+            continue
 
 
 @dataclass
@@ -427,6 +650,13 @@ def missing_rows(cell: Cell, runtime: dict, experiment: dict, total_reps: int) -
                 "time_rss_unit": "",
                 "pgswapin_delta": "",
                 "pgswapout_delta": "",
+                "cpu_target_pid": "",
+                "cpu_user_time_delta_s": "",
+                "cpu_system_time_delta_s": "",
+                "cpu_time_delta_s": "",
+                "cpu_elapsed_s": "",
+                "cpu_utilization": "",
+                "cpu_utilization_percent": "",
                 "load_time_ms": "",
                 "prompt_eval_time_ms": "",
                 "prompt_tokens": "",

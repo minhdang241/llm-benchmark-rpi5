@@ -15,6 +15,7 @@ runtime:
   temperature: 0.0
   generated_tokens: 2048
   prompt: s1_pp512
+  disable_qwen3_thinking: true
   buffer_float_type: q80
   extra_args: []
 

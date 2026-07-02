@@ -9,6 +9,9 @@ does reuse the llama.cpp timing parsing pattern, but memory comes from
 
 The S1 workload prompt is shared across llama.cpp and dllama during the
 feasibility and throughput screen.
+For Qwen3 cells, the runner prefixes the prompt with `/no_think` when
+`disable_qwen3_thinking: true` is set in the manifest, keeping the S1 probe
+focused on fixed-length throughput rather than reasoning-token variance.
 
 ## Dry Run
 
@@ -52,6 +55,13 @@ Linux uses:
 The Linux RSS value is parsed from `Maximum resident set size (kbytes)`.
 The runner also reads `/proc/vmstat` before and after each run to detect swap
 activity.
+
+CPU utilization is measured from explicit process CPU-time deltas, not
+`cpu_percent()`. The runner snapshots `Process(pid).cpu_times()` for the
+runtime process when the request starts and keeps the last observed sample
+before completion. `cpu_utilization = (delta_user + delta_system) / elapsed`,
+so 1.0 means one fully occupied core and 4.0 means four fully occupied cores.
+Process CPU counters include all threads in the runtime.
 
 ## Link Pi Models To An External SSD
 
@@ -204,7 +214,8 @@ Each run directory contains:
 
 - `s1_results.csv`: one row per warm-up/measured repetition
 - `s1_cells.jsonl`: the same rows as JSONL
-- `s1_summary.csv`: measured repetitions summarized by model and quant
+- `s1_summary.csv`: measured repetitions summarized by model and quant,
+  including mean CPU utilization
 - `s1_feasibility_heatmap.svg`: compact verdict heatmap
 - `raw/...`: stdout, stderr, `/usr/bin/time` output, and command JSON
 

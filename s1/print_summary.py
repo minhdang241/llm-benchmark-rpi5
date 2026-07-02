@@ -18,6 +18,7 @@ DEFAULT_COLUMNS = [
     ("mean_prefill_tps", "prefill"),
     ("mean_decode_tps", "decode"),
     ("mean_ttft_ms", "ttft_ms"),
+    ("mean_cpu_utilization_percent", "cpu_%"),
     ("max_pgswapin_delta", "swap_in"),
     ("max_pgswapout_delta", "swap_out"),
 ]

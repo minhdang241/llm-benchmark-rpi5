@@ -16,11 +16,13 @@ runtime:
   context_size: 2048
   generated_tokens: 128
   prompt: s1_pp512
+  disable_qwen3_thinking: true
   extra_args:
     - --simple-io
     - --single-turn
     - --no-display-prompt
     - -no-cnv
+    - --ignore-eos
 
 cells:
   - model_id: qwen3-0.6b
@@ -64,4 +66,3 @@ cells:
     model: Llama-3.2-3B-Instruct
     quants: [Q4_K_M]
     path_template: models/llama/tierA/llama-3.2-3B/llama-3.2-3b-instruct-{quant_lower}.gguf
-

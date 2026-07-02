@@ -52,6 +52,8 @@ def write_summary(rows: list[dict], output_dir: Path) -> Path:
                 "mean_prefill_tps": mean_float(group, "prompt_rate_tps"),
                 "mean_decode_tps": mean_float(group, "eval_rate_tps"),
                 "mean_ttft_ms": mean_float(group, "ttft_ms"),
+                "mean_cpu_utilization": mean_float(group, "cpu_utilization"),
+                "mean_cpu_utilization_percent": mean_float(group, "cpu_utilization_percent"),
                 "max_pgswapin_delta": max_float(group, "pgswapin_delta"),
                 "max_pgswapout_delta": max_float(group, "pgswapout_delta"),
             }
